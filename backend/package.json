@@ -5,7 +5,7 @@
   "description": "E-commerce backend",
   "main": "server.js",
   "scripts": {
-     "start": "concurrently \"npm start --prefix client\" \"npm start --prefix backend\"",
+    "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {

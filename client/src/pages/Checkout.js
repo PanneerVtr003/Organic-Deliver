@@ -6,18 +6,24 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Checkout.css';
 
+// Backend API base URL
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://organic-deliver.onrender.com' 
+  : 'http://localhost:5000';
+
 const Checkout = () => {
   const { cart, getCartTotal, clearCart } = useCart();
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     name: currentUser?.name || '',
     email: currentUser?.email || '',
-    phone: '',
-    address: '',
-    city: '',
-    zipCode: '',
+    phone: currentUser?.phone || '',
+    address: currentUser?.address?.street || '',
+    city: currentUser?.address?.city || '',
+    state: currentUser?.address?.state || '',
+    zipCode: currentUser?.address?.zipCode || '',
     paymentMethod: 'credit-card',
     cardNumber: '',
     expiryDate: '',
@@ -37,13 +43,54 @@ const Checkout = () => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      clearCart();
-      toast.success('Order placed successfully!');
-      navigate('/');
+    try {
+      // Prepare order data for backend
+      const orderData = {
+        items: cart.map(item => ({
+          food: item._id, // MongoDB food ID
+          quantity: item.quantity
+        })),
+        deliveryAddress: {
+          street: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode
+        },
+        paymentMethod: formData.paymentMethod,
+        customerInfo: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        }
+      };
+
+      // Send order to backend
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Order successful
+        clearCart();
+        toast.success('Order placed successfully!');
+        navigate('/');
+      } else {
+        // Order failed
+        toast.error(data.message || 'Failed to place order');
+      }
+    } catch (error) {
+      console.error('Order error:', error);
+      toast.error('Failed to place order. Please try again.');
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   if (cart.length === 0) {
@@ -53,6 +100,12 @@ const Checkout = () => {
           <h1>Checkout</h1>
           <div className="empty-cart">
             <p>Your cart is empty</p>
+            <button 
+              onClick={() => navigate('/menu')} 
+              className="btn btn-primary"
+            >
+              Browse Menu
+            </button>
           </div>
         </div>
       </div>
@@ -81,7 +134,7 @@ const Checkout = () => {
                 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="name">Full Name</label>
+                    <label htmlFor="name">Full Name *</label>
                     <input
                       type="text"
                       id="name"
@@ -93,7 +146,7 @@ const Checkout = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">Email *</label>
                     <input
                       type="email"
                       id="email"
@@ -106,7 +159,7 @@ const Checkout = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="phone">Phone Number</label>
+                  <label htmlFor="phone">Phone Number *</label>
                   <input
                     type="tel"
                     id="phone"
@@ -114,11 +167,12 @@ const Checkout = () => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
+                    placeholder="+1 (555) 123-4567"
                   />
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="address">Delivery Address</label>
+                  <label htmlFor="address">Delivery Address *</label>
                   <input
                     type="text"
                     id="address"
@@ -126,12 +180,13 @@ const Checkout = () => {
                     value={formData.address}
                     onChange={handleInputChange}
                     required
+                    placeholder="123 Main St"
                   />
                 </div>
                 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="city">City</label>
+                    <label htmlFor="city">City *</label>
                     <input
                       type="text"
                       id="city"
@@ -139,11 +194,25 @@ const Checkout = () => {
                       value={formData.city}
                       onChange={handleInputChange}
                       required
+                      placeholder="New York"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label htmlFor="zipCode">ZIP Code</label>
+                    <label htmlFor="state">State *</label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="NY"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="zipCode">ZIP Code *</label>
                     <input
                       type="text"
                       id="zipCode"
@@ -151,6 +220,7 @@ const Checkout = () => {
                       value={formData.zipCode}
                       onChange={handleInputChange}
                       required
+                      placeholder="10001"
                     />
                   </div>
                 </div>
@@ -164,7 +234,7 @@ const Checkout = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="paymentMethod">Payment Method</label>
+                  <label htmlFor="paymentMethod">Payment Method *</label>
                   <select
                     id="paymentMethod"
                     name="paymentMethod"
@@ -181,7 +251,7 @@ const Checkout = () => {
                 {formData.paymentMethod === 'credit-card' && (
                   <>
                     <div className="form-group">
-                      <label htmlFor="cardNumber">Card Number</label>
+                      <label htmlFor="cardNumber">Card Number *</label>
                       <input
                         type="text"
                         id="cardNumber"
@@ -190,12 +260,13 @@ const Checkout = () => {
                         onChange={handleInputChange}
                         placeholder="1234 5678 9012 3456"
                         required
+                        maxLength="19"
                       />
                     </div>
                     
                     <div className="form-row">
                       <div className="form-group">
-                        <label htmlFor="expiryDate">Expiry Date</label>
+                        <label htmlFor="expiryDate">Expiry Date *</label>
                         <input
                           type="text"
                           id="expiryDate"
@@ -204,11 +275,12 @@ const Checkout = () => {
                           onChange={handleInputChange}
                           placeholder="MM/YY"
                           required
+                          maxLength="5"
                         />
                       </div>
                       
                       <div className="form-group">
-                        <label htmlFor="cvv">CVV</label>
+                        <label htmlFor="cvv">CVV *</label>
                         <input
                           type="text"
                           id="cvv"
@@ -217,10 +289,23 @@ const Checkout = () => {
                           onChange={handleInputChange}
                           placeholder="123"
                           required
+                          maxLength="4"
                         />
                       </div>
                     </div>
                   </>
+                )}
+                
+                {formData.paymentMethod === 'paypal' && (
+                  <div className="payment-notice">
+                    <p>You will be redirected to PayPal to complete your payment.</p>
+                  </div>
+                )}
+                
+                {formData.paymentMethod === 'cash' && (
+                  <div className="payment-notice">
+                    <p>Please have exact change ready for the delivery driver.</p>
+                  </div>
                 )}
               </div>
               
@@ -263,7 +348,7 @@ const Checkout = () => {
                   <span>${deliveryFee.toFixed(2)}</span>
                 </div>
                 <div className="summary-row">
-                  <span>Tax</span>
+                  <span>Tax (8%)</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
                 <div className="summary-divider"></div>
@@ -271,6 +356,10 @@ const Checkout = () => {
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
                 </div>
+              </div>
+              
+              <div className="delivery-estimate">
+                <p>Estimated delivery: 30-45 minutes</p>
               </div>
             </div>
           </div>
