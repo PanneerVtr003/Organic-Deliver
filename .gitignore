@@ -38,6 +38,6 @@ pnpm-debug.log*
 *.swo
 
 # =========================
-# Misc
+# Test coverage
 # =========================
 coverage/
