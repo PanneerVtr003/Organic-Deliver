@@ -1,40 +1,29 @@
-import API from "../services/api"; // add this import
+import axios from 'axios';
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+// Use Render URL for production, localhost for development
+const API_BASE_URL = window.location.hostname === 'organic-deliver-gzj6.vercel.app' 
+  ? 'https://organic-deliver.onrender.com' 
+  : 'http://localhost:5000';
 
-  try {
-    const orderData = {
-      user: currentUser?._id,   // logged-in user ID
-      items: cart.map(item => ({
-        product: item._id,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      totalPrice: getCartTotal() + 2.99 + (getCartTotal() * 0.08),
-      deliveryInfo: {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        zipCode: formData.zipCode,
-      },
-      paymentMethod: formData.paymentMethod,
-    };
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-    // 🚀 send order to backend
-    await API.post("/orders", orderData);
-
-    clearCart();
-    toast.success("Order placed successfully!");
-    navigate("/");
-  } catch (error) {
-    console.error("Order failed", error);
-    toast.error("Failed to place order");
-  } finally {
-    setLoading(false);
+// Add request interceptor for auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-};
+);
+
+export default api;
